@@ -34,27 +34,33 @@ void* startOrder(void* args) {
 #endif
 
 	/* Wait for telephone guy */
+	pthread_mutex_lock(&tele_mutex);
+
 	while (available_telephone_guys == 0)
 		pthread_cond_wait(&tele_condv, &tele_mutex);
 
 	--available_telephone_guys;
-	
+
+	pthread_mutex_unlock(&tele_mutex);
+
 	/* Select pizzas */
 	int pizza_count = randint(N_ORDER_LOW, N_ORDER_HIGH);
 
 	/* Pay for pizzas */
 	unsigned int sleep_time = randint(T_PAYMENT_LOW, T_PAYMENT_HIGH);
+
 #ifdef DEBUG
 	sprintf(msg, "Order %ld waits for %d seconds on the phone", (long) args, sleep_time);
 	logstr(msg);
 #endif
-	sleep(sleep_time);	
+	sleep(sleep_time);
 
 	/* Fail to pay for pizzas */
 	if (randint(0, 1 * 100000) < P_FAIL * 100000) {
 		sprintf(msg, "Order %ld failed", (long) args);
 		logstr(msg);
 		/* exit with code 1 so sum of codes = number of failed */
+		/* THIS WILL CHANGE IN THE FUTURE */
 		pthread_exit((void*) 1);
 	}
 
@@ -64,9 +70,11 @@ void* startOrder(void* args) {
 	increment(C_PIZZA * pizza_count, &moneyyy);
 
 	/* Free the telephone guy */
+	pthread_mutex_lock(&tele_mutex);
+
 	++available_telephone_guys;
-	pthread_mutex_unlock(&tele_mutex);
 	pthread_cond_signal(&tele_condv);
+	pthread_mutex_unlock(&tele_mutex);
 
 	/*
 	 * ...
