@@ -19,7 +19,7 @@
 #define T_DEL_LOW  5
 #define T_DEL_HIGH 15
 
-// #define DEBUG
+#define DEBUG
 #define MAX_LOG_LENGTH 100
 
 typedef pthread_t thread;
@@ -44,7 +44,7 @@ void deliver_pizzas(pizza_info*);
 /*
  * logstr and logerr both append a newline in the end.
  * use locks so that the lines are not scrambled.
- * spinlocks are fine because printing is very quick.
+ * spinlocks are fine because printing is (relatively) very quick.
  */
 
 void logstr(char*);
@@ -59,6 +59,16 @@ void increment(int amt, int* total);
 
 /* sets `max` to the max of `max` and `val` */
 void max(int val, int* max);
+
+
+/*
+ * As time_t is a long int, the above functions, can cause an overflow
+ * so we define separate ones to handle time variables
+ */
+
+void increment_time(time_t amt, time_t* total);
+
+void max_time(time_t new_val, time_t* max);
 
 /* returns the time elapsed from `start_time` to now */
 time_t time_elapsed(time_t start_time);
