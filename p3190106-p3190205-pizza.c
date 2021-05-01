@@ -34,12 +34,14 @@ mutex delivery_mutex;
 condv cook_condv;
 condv tele_condv;
 condv oven_condv;
+condv package_condv;
 condv delivery_condv;
 
 /* global counters for available resources */
 int available_telephone_guys = N_TELE;
 int available_cooks = N_COOK;
 int available_ovens = N_OVEN;
+int available_package_guys = 1;
 int available_delivery_guys = N_DELIVERER;
 
 /* ==================== Main Functions ==================== */
@@ -65,6 +67,7 @@ int main(int argc, char** argv) {
 	pthread_mutex_init(&out_lock, NULL);
 	pthread_mutex_init(&increment_lock, NULL);
 	pthread_mutex_init(&max_lock, NULL);
+
 	pthread_mutex_init(&tele_mutex, NULL);
 	pthread_mutex_init(&cook_mutex, NULL);
 	pthread_mutex_init(&oven_mutex, NULL);
@@ -74,6 +77,7 @@ int main(int argc, char** argv) {
 	pthread_cond_init(&tele_condv, NULL);
 	pthread_cond_init(&cook_condv, NULL);
 	pthread_cond_init(&oven_condv, NULL);
+	pthread_cond_init(&package_condv, NULL);
 	pthread_cond_init(&delivery_condv, NULL);
 
 	/* Initialize program */
@@ -155,6 +159,7 @@ int main(int argc, char** argv) {
 	pthread_mutex_destroy(&out_lock);
 	pthread_mutex_destroy(&increment_lock);
 	pthread_mutex_destroy(&max_lock);
+
 	pthread_mutex_destroy(&tele_mutex);
 	pthread_mutex_destroy(&cook_mutex);
 	pthread_mutex_destroy(&oven_mutex);
@@ -164,6 +169,7 @@ int main(int argc, char** argv) {
 	pthread_cond_destroy(&tele_condv);
 	pthread_cond_destroy(&cook_condv);
 	pthread_cond_destroy(&oven_condv);
+	pthread_cond_destroy(&package_condv);
 	pthread_cond_destroy(&delivery_condv);
 
 	return 0;
@@ -238,14 +244,7 @@ void prepare_pizzas(pizza_info* p_info) {
 	/* Prepare the pizzas */
 	sleep(p_info->num_of_pizzas * T_PREP);
 
-	// THE COOK SHOULD NOT BE FREED HERE. FREE HIM AFTER PIZZAS GO INTO OVEN
-	// THE LINES FROM HERE TO THE END OF THE FUNCTION SHOULD BE MOVED TO APPROX. LINE 254
-	/* Free the cook */
-	pthread_mutex_lock(&cook_mutex);
-
-	available_cooks++;
-	pthread_mutex_unlock(&cook_mutex);
-	pthread_cond_signal(&cook_condv);
+	/* The cook is freed once the pizzas are in the ovens */
 }
 
 void cook_pizzas(pizza_info* p_info) {
@@ -258,7 +257,12 @@ void cook_pizzas(pizza_info* p_info) {
 	available_ovens -= p_info->num_of_pizzas;
 	pthread_mutex_unlock(&oven_mutex);
 
-	// COOK SHOULD BE FREED HERE ACCORDING TO THE EKFWNHSH
+	/* Free the cook now that the pizzas are in the ovens */
+	pthread_mutex_lock(&cook_mutex);
+
+	available_cooks++;
+	pthread_mutex_unlock(&cook_mutex);
+	pthread_cond_signal(&cook_condv);
 
 	/* Bake the pizzas */
 	sleep(T_BAKE);
@@ -266,30 +270,39 @@ void cook_pizzas(pizza_info* p_info) {
 	/* Mark the time the pizzas are ready in order to calculate the time they are cooling */
 	clock_gettime(CLOCK_REALTIME, &p_info->order_baked_time);
 
-	// THE OVENS SHOULD NOT BE FREED HERE. FREE THEM AFTER PIZZAS ARE PACKED
-	// THE LINES FROM HERE TO THE END OF THE FUNCTION SHOULD BE MOVED TO APPROX. LINE 280
-	/* Free the ovens */
-	pthread_mutex_lock(&cook_mutex);
-
-	available_ovens += p_info->num_of_pizzas;
-	pthread_mutex_unlock(&cook_mutex);
-	pthread_cond_signal(&oven_condv);
+	/* The ovens are freed once the pizzas are all packed */
 }
 
 void package_pizzas(pizza_info* p_info) {
 
-	/* why is this spinlocking :( */
-
+	/* Wait for an available package guy */
 	pthread_mutex_lock(&package_mutex);
-	sleep(T_PACK * p_info->num_of_pizzas);
+	while (available_package_guys == 0)
+		pthread_cond_wait(&package_condv, &package_mutex);
+
+	--available_package_guys;
 	pthread_mutex_unlock(&package_mutex);
 
-	// OVENS SHOULD BE FREED HERE ACCORDING TO THE EKFWNHSH
+	/* Package the pizzas */
+	sleep(T_PACK * p_info->num_of_pizzas);
 
 	char msg[MAX_LOG_LENGTH];
 	sprintf(msg, "Order %ld prepared in %d seconds", p_info->threadID,
 			time_elapsed(&p_info->order_start_time));
 	logstr(msg);
+
+	/* Free the ovens now that the pizzas are packaged */
+	pthread_mutex_lock(&cook_mutex);
+
+	available_ovens += p_info->num_of_pizzas;
+	pthread_mutex_unlock(&cook_mutex);
+
+	/* Free the package guy */
+	pthread_mutex_lock(&package_mutex);
+
+	available_package_guys++;
+	pthread_mutex_unlock(&package_mutex);
+	pthread_cond_signal(&package_condv);
 }
 
 void deliver_pizzas(pizza_info* p_info) {
@@ -367,4 +380,5 @@ int time_elapsed(struct timespec *tp) {
 	struct timespec now;
 	clock_gettime(CLOCK_REALTIME, &now);
 	return now.tv_sec - tp->tv_sec;
+//	return (time(NULL) - start_time);
 }
