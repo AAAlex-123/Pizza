@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
 	/* Numer of Customers */
 	number_of_customers = atoi(argv[1]);
 	if (number_of_customers <= 0) {
-		fprintf(stderr, "Error: Invalid number of customers!");
+		fprintf(stderr, "Error: Invalid number of customers");
 		exit(2);
 	}
 
@@ -107,8 +107,8 @@ int main(int argc, char** argv) {
 
 	/* Random Seed */
 	rand_seed = atoi(argv[1]);
-	// if (random_seed == NULL) {
-		
+	if (rand_seed == NULL)
+		fprintf(stdout, "Warning: Seed 0 may indicate invalid input");
 
 	/* Initialize orders */
 	for (long i = 0L; i < number_of_customers; ++i) {
@@ -251,9 +251,8 @@ void cook_pizzas(pizza_info* p_info) {
 
 	/* Wait for the correct number of available ovens */
 	pthread_mutex_lock(&oven_mutex);
-	while (p_info->num_of_pizzas > available_ovens) {
+	while (p_info->num_of_pizzas > available_ovens)
 		pthread_cond_wait(&oven_condv, &oven_mutex);
-	}
 
 	available_ovens -= p_info->num_of_pizzas;
 	pthread_mutex_unlock(&oven_mutex);
@@ -380,5 +379,4 @@ int time_elapsed(struct timespec *tp) {
 	struct timespec now;
 	clock_gettime(CLOCK_REALTIME, &now);
 	return now.tv_sec - tp->tv_sec;
-//	return (time(NULL) - start_time);
 }
