@@ -2,7 +2,7 @@
 #define __PIZZA_H__
 
 #define N_TELE 3
-#define N_COOK 3
+#define N_COOK 2
 #define N_OVEN 10
 #define N_DELIVERER    7
 #define T_ORDER_LOW    1
@@ -26,28 +26,30 @@ typedef pthread_t thread;
 typedef pthread_mutex_t mutex;
 typedef pthread_cond_t condv;
 
-typedef struct{
-	int threadID;
+typedef struct {
+	long threadID;
 	int num_of_pizzas;
-	clock_t time;
+	time_t order_start_time;
+	time_t order_baked_time;
 } pizza_info;
 
 unsigned int rand_seed = 869;
 
-void startOrder(pizza_info * pid);
-void prepare_pizzas(pizza_info* pid);
-void cook_pizzas(pizza_info* pid);
-void package_pizzas(pizza_info* p_info);
+int order_pizzas(pizza_info*);
+void prepare_pizzas(pizza_info*);
+void cook_pizzas(pizza_info*);
+void package_pizzas(pizza_info*);
+void deliver_pizzas(pizza_info*);
 
 /*
  * logstr and logerr both append a newline in the end.
  * use locks so that the lines are not scrambled.
- * spinlocks are fine because printing is very quick.
+ * spinlocks are fine because printing is (relatively) very quick.
  */
 
-void logstr(char* string);
+void logstr(char*);
 
-void logerr(char* string);
+void logerr(char*);
 
 /* returns random integer in the range [start, end] */
 int randint(int start, int end);
@@ -55,6 +57,20 @@ int randint(int start, int end);
 /* increments `total` by `amt`  s a f e l y */
 void increment(int amt, int* total);
 
-/* returns the time elapsed from "process_time" to now */
-double time_elapsed(clock_t process_time);
+/* sets `max` to the max of `max` and `val` */
+void max(int val, int* max);
+
+
+/*
+ * As time_t is a long int, the above functions, can cause an overflow
+ * so we define separate ones to handle time variables
+ */
+
+void increment_time(time_t amt, time_t* total);
+
+void max_time(time_t new_val, time_t* max);
+
+/* returns the time elapsed from `start_time` to now */
+time_t time_elapsed(time_t start_time);
+
 #endif
