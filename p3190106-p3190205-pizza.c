@@ -223,7 +223,7 @@ int order_pizzas(pizza_info* p_info) {
 	pthread_mutex_lock(&tele_mutex); /* lock the resource to edit it */
 
 	++available_telephone_guys; /* update the resource */
-	pthread_cond_signal(&tele_condv); /* signal the other threads that the resource is available */
+	pthread_cond_broadcast(&tele_condv); /* signal the other threads that the resource is available */
 	pthread_mutex_unlock(&tele_mutex); /* unlock the resource */
 
 	/* Return code indicating success or failure of payment */
@@ -235,7 +235,7 @@ void prepare_pizzas(pizza_info* p_info) {
 	/* Wait for an available cook */
 	pthread_mutex_lock(&cook_mutex);
 
-	while(available_cooks == 0)
+	while (available_cooks == 0)
 		pthread_cond_wait(&cook_condv, &cook_mutex);
 
 	available_cooks--;
@@ -251,8 +251,9 @@ void cook_pizzas(pizza_info* p_info) {
 
 	/* Wait for the correct number of available ovens */
 	pthread_mutex_lock(&oven_mutex);
-	while(p_info->num_of_pizzas > available_ovens)
+	while (p_info->num_of_pizzas > available_ovens) {
 		pthread_cond_wait(&oven_condv, &oven_mutex);
+	}
 
 	available_ovens -= p_info->num_of_pizzas;
 	pthread_mutex_unlock(&oven_mutex);
@@ -261,8 +262,8 @@ void cook_pizzas(pizza_info* p_info) {
 	pthread_mutex_lock(&cook_mutex);
 
 	available_cooks++;
+	pthread_cond_broadcast(&cook_condv);
 	pthread_mutex_unlock(&cook_mutex);
-	pthread_cond_signal(&cook_condv);
 
 	/* Bake the pizzas */
 	sleep(T_BAKE);
@@ -292,17 +293,18 @@ void package_pizzas(pizza_info* p_info) {
 	logstr(msg);
 
 	/* Free the ovens now that the pizzas are packaged */
-	pthread_mutex_lock(&cook_mutex);
+	pthread_mutex_lock(&oven_mutex);
 
 	available_ovens += p_info->num_of_pizzas;
-	pthread_mutex_unlock(&cook_mutex);
+	pthread_cond_broadcast(&oven_condv);
+	pthread_mutex_unlock(&oven_mutex);
 
 	/* Free the package guy */
 	pthread_mutex_lock(&package_mutex);
 
 	available_package_guys++;
+	pthread_cond_broadcast(&package_condv);
 	pthread_mutex_unlock(&package_mutex);
-	pthread_cond_signal(&package_condv);
 }
 
 void deliver_pizzas(pizza_info* p_info) {
@@ -329,9 +331,7 @@ void deliver_pizzas(pizza_info* p_info) {
 	int cooling_time = time_elapsed(&p_info->order_baked_time);
 
 	increment(delivery_time, &total_delivery);
-	max(delivery_time, &max_delivery);
-	increment(cooling_time, &total_cooling);
-	max(cooling_time, &max_cooling);
+	max(delivery_time, &max_delivery); increment(cooling_time, &total_cooling); max(cooling_time, &max_cooling);
 
 	/* Return to pizza shop */
 	sleep(delivery_duration);
@@ -340,7 +340,7 @@ void deliver_pizzas(pizza_info* p_info) {
 	pthread_mutex_lock(&delivery_mutex);
 
 	++available_delivery_guys;
-	pthread_cond_signal(&delivery_condv);
+	pthread_cond_broadcast(&delivery_condv);
 	pthread_mutex_unlock(&delivery_mutex);
 }
 
