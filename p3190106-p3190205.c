@@ -8,29 +8,46 @@
 
 /* general global vars*/
 int customers;
-pizza_info *pids;
+pizza_info* pizza_infos;
 thread* threads;
+
 
 /*stats*/
 int moneyyy = 0;
+int successful = 0;
+int failed = 0;
+
+time_t total_wait = 0;
+time_t max_wait = -1;
+
+int total_delivery = 0;
+int max_delivery = 0;
+
+time_t total_cooling = 0;
+time_t max_cooling = -1;
+
 
 /* global mutexes and condition variables */
 mutex out_lock;
 mutex increment_lock;
+mutex max_lock;
 
 mutex tele_mutex;
 mutex cook_mutex;
 mutex oven_mutex;
 mutex package_mutex;
+mutex delivery_mutex;
 
 condv cook_condv;
 condv tele_condv;
 condv oven_condv;
+condv delivery_condv;
 
 /* global counters for available resources */
 int available_telephone_guys = N_TELE;
 int available_cooks = N_COOK;
 int available_ovens = N_OVEN;
+int available_delivery_guys = N_DELIVERER;
 
 /*===================== Main Functions =====================*/
 
@@ -38,23 +55,25 @@ int available_ovens = N_OVEN;
  * Function called by all threads to make an order, successively calls all steps
  * for the pizza delivery.
  */
-void* makeOrder(void* args){
-	pizza_info * p_info = (pizza_info *) args;
-	startOrder(p_info);
+void* makeOrder(void* args) {
+	pizza_info* p_info = (pizza_info*) args;
+
+	if (order_pizzas(p_info) == 1)
+		pthread_exit((void*)1);
 	prepare_pizzas(p_info);
 	cook_pizzas(p_info);
 	package_pizzas(p_info);
-	//...
+	deliver_pizzas(p_info);
 
 	pthread_exit(NULL);
 }
-
 
 int main(int argc, char** argv) {
 
 	/* Initialize all mutexes / cond variables */
 	pthread_mutex_init(&out_lock, NULL);
 	pthread_mutex_init(&increment_lock, NULL);
+	pthread_mutex_init(&max_lock, NULL);
 	pthread_mutex_init(&tele_mutex, NULL);
 	pthread_mutex_init(&cook_mutex, NULL);
 	pthread_mutex_init(&oven_mutex, NULL);
@@ -82,8 +101,8 @@ int main(int argc, char** argv) {
 	}
 	customers = cust_num;
 
-	pids = (pizza_info*) malloc(cust_num*sizeof(pizza_info));
-	if (pids == NULL) {
+	pizza_infos = (pizza_info*) malloc(cust_num*sizeof(pizza_info));
+	if (pizza_infos == NULL) {
 		fprintf(stderr,"Error: memory allocation in id array");
 		exit(3);
 	}
@@ -97,20 +116,26 @@ int main(int argc, char** argv) {
 	/* Random Seed */
 	rand_seed = atoi(argv[1]);
 
+
 	/* Initialize orders */
 	for (long i = 0; i < customers; ++i) {
 
 		pizza_info thread_info;
 		thread_info.threadID = i;
-		thread_info.time = clock();
-		pids[i] = thread_info;
+		thread_info.order_start_time = time(NULL);
+		pizza_infos[i] = thread_info;
 
-		if (pthread_create(&threads[i], NULL, makeOrder, (void*) &pids[i])) {
+		if (pthread_create(&threads[i], NULL, makeOrder, (void*) &pizza_infos[i])) {
 			fprintf(stderr, "Error: Thread %ld could not be created", i);
 		}
 
 		sleep(randint(T_ORDER_LOW, T_ORDER_HIGH));
 	}
+
+#ifdef DEBUG
+	printf("All orders created\n");
+	fflush(stdout);
+#endif
 
 	/* Wait for orders to finish */
 	int failed = 0;
@@ -119,89 +144,109 @@ int main(int argc, char** argv) {
 		pthread_join(threads[i], &status);
 
 #ifdef DEBUG
-		printf("Thread %d exited with code %ld\n", i, (long) status);
+		printf("Thread %d joined\n", i);
+		fflush(stdout);
 #endif
 
 		failed += (long) status;
 	}
 
 	/* Print very useful stats */
+	int successful = cust_num - failed;
 	printf("\nVery Useful Stats:\n");
-	printf("Total revenue: %d\nSuccessful orders: %d\nFailed orders: %d\n", moneyyy, cust_num - failed, failed);
+	printf("Total revenue: %d\nSuccessful orders: %d\nFailed orders: %d\n", moneyyy, successful, failed);
+	printf("Average wait time: %.3f\nMax wait time: %ld\n", (float) total_wait / cust_num, max_wait);
+	printf("Average delivery time: %.3f\nMax delivery time: %d\n", (float) total_delivery / successful, max_delivery);
+	printf("Average cooling time: %.3f\nMax cooling time: %ld\n", (float) total_cooling / successful, max_cooling);
 
-	/* we know `free` exists pls give good grade */
+	/* we know `free` and `destroy` exist pls give good grade */
 	free(threads);
-	free(pids);
+	free(pizza_infos);
 
 	pthread_mutex_destroy(&out_lock);
 	pthread_mutex_destroy(&increment_lock);
+	pthread_mutex_destroy(&max_lock);
 	pthread_mutex_destroy(&tele_mutex);
 	pthread_mutex_destroy(&cook_mutex);
 	pthread_mutex_destroy(&oven_mutex);
 	pthread_mutex_destroy(&package_mutex);
+	pthread_mutex_destroy(&delivery_mutex);
 
 	pthread_cond_destroy(&tele_condv);
 	pthread_cond_destroy(&cook_condv);
 	pthread_cond_destroy(&oven_condv);
+	pthread_cond_destroy(&delivery_condv);
 
 	return 0;
 }
 
-/* Starts the pizza order */
-void startOrder(pizza_info * pid) {
+int order_pizzas(pizza_info* p_info) {
 
-	char msg[MAX_LOG_LENGTH]; /* buffer for sprintf and logstr for this thread */
+	/* buffer for sprintf and logstr for this thread */
+	char msg[MAX_LOG_LENGTH];
 
 #ifdef DEBUG
-	sprintf(msg, "Thread %d started", pid->threadID);
+	sprintf(msg, "Thread %ld started", p_info->threadID);
 	logstr(msg);
 #endif
 
+	/* Wait for telephone guy */
 	pthread_mutex_lock(&tele_mutex);
 
-	while (available_telephone_guys == 0) { /* Wait for telephone guy */
+	while (available_telephone_guys == 0)
 		pthread_cond_wait(&tele_condv, &tele_mutex);
-	}
+
 	--available_telephone_guys;
 
-	int pizza_count = randint(N_ORDER_LOW, N_ORDER_HIGH); /* Select pizzas */
+	pthread_mutex_unlock(&tele_mutex);
 
-	unsigned int sleep_time = randint(T_PAYMENT_LOW, T_PAYMENT_HIGH); /* Pay for pizzas */
+	/* Talk with telephone guy */
+	int wait = time_elapsed(p_info->order_start_time);
+	increment_time(wait, &total_wait);
+	max_time(wait, &max_wait);
+
+	/* Select pizzas */
+	p_info->num_of_pizzas = randint(N_ORDER_LOW, N_ORDER_HIGH);
+
+	/* Pay for pizzas */
+	unsigned int sleep_time = randint(T_PAYMENT_LOW, T_PAYMENT_HIGH);
 
 #ifdef DEBUG
-	sprintf(msg, "Order %d waits for %d seconds on the phone", pid->threadID, sleep_time);
+	sprintf(msg, "Thread %ld waits for %d seconds on the phone", p_info->threadID, sleep_time);
 	logstr(msg);
 #endif
-
 	sleep(sleep_time);
 
-	/* Fail to pay for pizzas */
-	if (randint(0, 1 * 100000) < P_FAIL * 100000) {
-		sprintf(msg, "Order %d failed", pid->threadID);
+	int failed = randint(0, 1 * 100000) < P_FAIL * 100000;
+
+	if (failed) {
+
+		/* Fail to pay for pizzas */
+		sprintf(msg, "Order %ld failed", p_info->threadID);
 		logstr(msg);
-		pthread_exit((void*) 1); /* exit with code 1 so sum of codes = number of failed */
+	} else {
+
+		/* Actually pay for pizzas */
+		sprintf(msg, "Order %ld registered", p_info->threadID);
+		logstr(msg);
+		increment(p_info->num_of_pizzas * C_PIZZA, &moneyyy);
 	}
 
-	/* Actually pay for pizzas */
-	sprintf(msg, "Order %d registered", pid->threadID);
-	logstr(msg);
-	increment(C_PIZZA * pizza_count, &moneyyy);
+	/* Always free the telephone guy */
+	pthread_mutex_lock(&tele_mutex);
 
-	/* Free the telephone guy */
 	++available_telephone_guys;
-	pthread_mutex_unlock(&tele_mutex);
 	pthread_cond_signal(&tele_condv);
-
-	pid->num_of_pizzas = pizza_count;
+	pthread_mutex_unlock(&tele_mutex);
+	return failed ? 1 : 0;
 }
 
-
-void prepare_pizzas(pizza_info* pid) {
+void prepare_pizzas(pizza_info* p_info) {
 	pthread_mutex_lock(&cook_mutex);
 
 #ifdef DEBUG
 	char msg [MAX_LOG_LENGTH];
-	sprintf(msg, "Thread %d is waiting %d cooks to prepare %d pizzas", pid->threadID, available_cooks, pid->num_of_pizzas);
+	sprintf(msg, "Thread %ld is waiting %d cooks to prepare %d pizzas", p_info->threadID, available_cooks, p_info->num_of_pizzas);
 	logstr(msg);
 #endif
 
@@ -209,50 +254,102 @@ void prepare_pizzas(pizza_info* pid) {
 		pthread_cond_wait(&cook_condv, &cook_mutex);
 
 	available_cooks--;
-	sleep(pid->num_of_pizzas*T_PREP);
-	available_cooks++;
-
 	pthread_mutex_unlock(&cook_mutex);
-	pthread_cond_signal(&cook_condv);
+	pthread_cond_signal(&cook_condv); 			/*let other threads that are waiting try to claim an available cook*/
+
+	sleep(p_info->num_of_pizzas*T_PREP);
+
+	pthread_mutex_lock(&cook_mutex);
+	available_cooks++;				  			/*only one thread should change this at any time*/
+	pthread_mutex_unlock(&cook_mutex);
+
+	pthread_cond_signal(&cook_condv); 			/*let other threads use the now available cook*/
 }
 
-
-
-void cook_pizzas(pizza_info* pid) {
+void cook_pizzas(pizza_info* p_info) {
 
 	pthread_mutex_lock(&oven_mutex);
-	while(pid->num_of_pizzas > available_ovens)
+	while(p_info->num_of_pizzas > available_ovens)
 		pthread_cond_wait(&oven_condv, &oven_mutex);
 
-	available_ovens -= pid->num_of_pizzas;
+	available_ovens -= p_info->num_of_pizzas;
+	pthread_mutex_unlock(&oven_mutex);
+	pthread_cond_signal(&oven_condv);			/*let other threads that are waiting try to claim the available ovens*/
 
 #ifdef DEBUG
-	char msg[100];
-	sprintf(msg, "Thread %d started cooking %d pizzas, %d ovens currently available",pid->threadID,pid->num_of_pizzas,available_ovens);
+	char msg[MAX_LOG_LENGTH];
+	sprintf(msg, "Thread %ld started cooking %d pizzas, %d ovens currently available",p_info->threadID,p_info->num_of_pizzas,available_ovens);
 	logstr(msg);
 #endif
 
 	sleep(T_BAKE);
-	available_ovens += pid->num_of_pizzas;
 
-	pthread_mutex_unlock(&oven_mutex);
-	pthread_cond_signal(&oven_condv);
+	pthread_mutex_lock(&cook_mutex);
+	available_ovens += p_info->num_of_pizzas;	/*only one thread should change this at any time*/
+	pthread_mutex_unlock(&cook_mutex);
+
+	pthread_cond_signal(&oven_condv);			/*let other threads use the now available ovens*/
+
+	p_info->order_baked_time = time(NULL);
 }
 
-
-
 void package_pizzas(pizza_info* p_info) {
-	char msg [100];
+	char msg[MAX_LOG_LENGTH];
 
 	pthread_mutex_lock(&package_mutex);
 	sleep(T_PACK * p_info->num_of_pizzas);
 	pthread_mutex_unlock(&package_mutex);
 
-	sprintf(msg, "Order #%d packaged within %f.3 minutes",p_info->threadID, time_elapsed(p_info->time));
+	sprintf(msg, "Order %ld prepared in %ld seconds", p_info->threadID, time_elapsed(p_info->order_start_time));
 	logstr(msg);
-	p_info->time = clock(); /*update time to calculate delivery time in the next step*/
 }
 
+void deliver_pizzas(pizza_info* p_info) {
+	char msg[MAX_LOG_LENGTH];
+
+#ifdef DEBUG
+	sprintf(msg, "Thread %ld waiting to be delivered. %d delivery boys available", p_info->threadID, available_delivery_guys);
+	logstr(msg);
+#endif
+
+	/* Wait for delivery guy */
+	pthread_mutex_lock(&delivery_mutex);
+	while (available_delivery_guys == 0)
+		pthread_cond_wait(&delivery_condv, &delivery_mutex);
+
+	--available_delivery_guys;
+	pthread_mutex_unlock(&delivery_mutex);
+	pthread_cond_signal(&delivery_condv);				/*let other threads that are waiting try to claim the available ovens*/
+
+	/* Deliver pizzas */
+	int delivery_time = randint(T_DEL_LOW, T_DEL_HIGH);
+	sleep(delivery_time);
+
+	sprintf(msg, "Order %ld delivered in %ld seconds", p_info->threadID, time_elapsed(p_info->order_start_time));
+	logstr(msg);
+
+	/* Update global variables */
+	int cooling_time = time_elapsed(p_info->order_baked_time);
+
+#ifdef DEBUG
+	sprintf(msg, "New total_cooling_time: %ld",total_cooling);
+	logstr(msg);
+#endif
+
+	increment(delivery_time, &total_delivery);
+	max(delivery_time, &max_delivery);
+	increment_time(cooling_time, &total_cooling);
+	max_time(cooling_time, &max_cooling);
+
+	/* Return to pizza shop */
+	sleep(delivery_time);
+
+	/* Free delivery guy */
+	pthread_mutex_lock(&delivery_mutex);
+	++available_delivery_guys;
+	pthread_mutex_unlock(&delivery_mutex);
+	pthread_cond_signal(&delivery_condv);				/*let other threads use the now available delivery guys*/
+}
 
 /*===================== Utility Functions =====================*/
 
@@ -284,6 +381,24 @@ void increment(int amt, int* total) {
 	pthread_mutex_unlock(&increment_lock);
 }
 
-double time_elapsed(clock_t process_time) {
-	return (double)((clock() - process_time)/CLOCKS_PER_SEC);
+void max(int new_val, int* max) {
+	pthread_mutex_lock(&max_lock);
+	*max = (new_val > *max) ? new_val : *max;
+	pthread_mutex_unlock(&max_lock);
+}
+
+void increment_time(time_t amt, time_t* total) {
+	pthread_mutex_lock(&increment_lock);
+	*total += amt;
+	pthread_mutex_unlock(&increment_lock);
+}
+
+void max_time(time_t new_val, time_t* max) {
+	pthread_mutex_lock(&max_lock);
+	*max = (new_val > *max) ? new_val : *max;
+	pthread_mutex_unlock(&max_lock);
+}
+
+time_t time_elapsed(time_t start_time) {
+	return (time(NULL) - start_time);
 }
