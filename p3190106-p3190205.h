@@ -2,7 +2,7 @@
 #define __PIZZA_H__
 
 #define N_TELE 3
-#define N_COOK 3
+#define N_COOK 2
 #define N_OVEN 10
 #define N_DELIVERER    7
 #define T_ORDER_LOW    1
@@ -19,52 +19,50 @@
 #define T_DEL_LOW  5
 #define T_DEL_HIGH 15
 
+#define DEBUG
+#define MAX_LOG_LENGTH 100
+
 typedef pthread_t thread;
 typedef pthread_mutex_t mutex;
 typedef pthread_cond_t condv;
 
-/* mutexes for utility functions in this file */
-mutex out_lock;
-mutex increment_lock;
 
-void init_helper_mutexes() {
-    pthread_mutex_init(&out_lock, NULL);
-    pthread_mutex_init(&increment_lock, NULL);
-}
+typedef struct {
+	long threadID;
+	int num_of_pizzas;
+	time_t order_start_time;
+	time_t order_baked_time;
+} pizza_info;
 
 unsigned int rand_seed = 869;
+
+int order_pizzas(pizza_info*);
+void prepare_pizzas(pizza_info*);
+void cook_pizzas(pizza_info*);
+void package_pizzas(pizza_info*);
+void deliver_pizzas(pizza_info*);
+
 
 /*
  * logstr and logerr both append a newline in the end.
  * use locks so that the lines are not scrambled.
- * spinlocks are fine because printing is very quick.
- */ 
+ * spinlocks are fine because printing is (relatively) very quick.
+ */
 
-void logstr(char* string) {
-    pthread_mutex_lock(&out_lock);
-    fprintf(stdout, "%s\n",string);
-    fflush(stdout);
-    pthread_mutex_unlock(&out_lock);
-}
+void logstr(char*);
 
-void logerr(char* string) { 
-    pthread_mutex_lock(&out_lock);
-    fprintf(stderr, "%s\n",string);
-    fflush(stderr);
-    pthread_mutex_unlock(&out_lock);
-}
+void logerr(char*);
 
 /* returns random integer in the range [start, end] */
-int randint(int start, int end) {
-    if(rand_seed == 869)
-        logerr("Warning: seed not initialized.\nTODO: REMOVE THIS");
-    return (rand_r(&rand_seed) % (end-start+1)) + start;
-}
+int randint(int start, int end);
 
 /* increments `total` by `amt`  s a f e l y */
-void increment(int amt, int* total) {
-	pthread_mutex_lock(&increment_lock);
-	*total += amt;
-	pthread_mutex_unlock(&increment_lock);
-}
+void increment(int amt, int* total);
+
+/* sets `max` to the max of `max` and `val` */
+void max(int val, int* max);
+
+/* returns the time elapsed from `start_time` to now */
+time_t time_elapsed(time_t start_time);
+
 #endif
