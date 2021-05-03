@@ -10,8 +10,7 @@
  * Details about the functions and data structures used can be found in the header file.
  */
 
-/* general global vars*/
-int number_of_customers;
+/* data arrays*/
 order_info* order_infos;
 thread* threads;
 
@@ -68,7 +67,8 @@ void* make_order(void* args) {
 }
 
 int main(int argc, char** argv) {
-
+	int number_of_customers;
+	
 	/* Initialize all mutexes / cond variables */
 	pthread_mutex_init(&out_lock, NULL);
 	pthread_mutex_init(&increment_lock, NULL);
@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
 	pthread_cond_init(&oven_condv, NULL);
 	pthread_cond_init(&package_condv, NULL);
 	pthread_cond_init(&delivery_condv, NULL);
-
+	
 	/* Initialize program */
 	if (argc != 3) {
 		fprintf(stderr, "Usage: ./a.out [number of customers] [random seed]");
@@ -156,7 +156,7 @@ int main(int argc, char** argv) {
 	int successful_orders = number_of_customers - failed_orders;
 
 	printf("\nStats:\n");
-	printf("Total revenue:         %d\nSuccessful orders:     %d\nFailed orders:         %d\n",
+	printf("Total revenue:         %d$\nSuccessful orders:     %d\nFailed orders:         %d\n",
 			revenue, successful_orders, failed_orders);
 
 	printf("Average wait time:     %.2f minutes\nMax wait time:         %.2f minutes\n",
