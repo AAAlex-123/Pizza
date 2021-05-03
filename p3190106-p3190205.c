@@ -68,6 +68,7 @@ void* makeOrder(void* args) {
 	pthread_exit(NULL);
 }
 
+
 int main(int argc, char** argv) {
 
 	/* Initialize all mutexes / cond variables */
@@ -83,9 +84,11 @@ int main(int argc, char** argv) {
 	pthread_cond_init (&cook_condv, NULL);
 	pthread_cond_init (&oven_condv, NULL);
 
+
 #ifdef DEBUG
 	printf("Customers: %s\nSeed: %s\n", argv[1],argv[2]);
 #endif
+
 
 	/* Initialize program num_of_pizzass */
 	if (argc != 3) {
@@ -116,7 +119,6 @@ int main(int argc, char** argv) {
 	/* Random Seed */
 	rand_seed = atoi(argv[1]);
 
-
 	/* Initialize orders */
 	for (long i = 0; i < customers; ++i) {
 
@@ -136,7 +138,6 @@ int main(int argc, char** argv) {
 	printf("All orders created\n");
 	fflush(stdout);
 #endif
-
 	/* Wait for orders to finish */
 	int failed = 0;
         void* status;
@@ -147,19 +148,18 @@ int main(int argc, char** argv) {
 		printf("Thread %d joined\n", i);
 		fflush(stdout);
 #endif
-
 		failed += (long) status;
 	}
 
 	/* Print very useful stats */
+
 	int successful = cust_num - failed;
 	printf("\nVery Useful Stats:\n");
 	printf("Total revenue: %d\nSuccessful orders: %d\nFailed orders: %d\n", moneyyy, successful, failed);
 	printf("Average wait time: %.3f\nMax wait time: %ld\n", (float) total_wait / cust_num, max_wait);
 	printf("Average delivery time: %.3f\nMax delivery time: %d\n", (float) total_delivery / successful, max_delivery);
 	printf("Average cooling time: %.3f\nMax cooling time: %ld\n", (float) total_cooling / successful, max_cooling);
-
-	/* we know `free` and `destroy` exist pls give good grade */
+  
 	free(threads);
 	free(pizza_infos);
 

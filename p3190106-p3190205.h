@@ -26,6 +26,7 @@ typedef pthread_t thread;
 typedef pthread_mutex_t mutex;
 typedef pthread_cond_t condv;
 
+
 typedef struct {
 	long threadID;
 	int num_of_pizzas;
@@ -40,6 +41,7 @@ void prepare_pizzas(pizza_info*);
 void cook_pizzas(pizza_info*);
 void package_pizzas(pizza_info*);
 void deliver_pizzas(pizza_info*);
+
 
 /*
  * logstr and logerr both append a newline in the end.
@@ -59,16 +61,6 @@ void increment(int amt, int* total);
 
 /* sets `max` to the max of `max` and `val` */
 void max(int val, int* max);
-
-
-/*
- * As time_t is a long int, the above functions, can cause an overflow
- * so we define separate ones to handle time variables
- */
-
-void increment_time(time_t amt, time_t* total);
-
-void max_time(time_t new_val, time_t* max);
 
 /* returns the time elapsed from `start_time` to now */
 time_t time_elapsed(time_t start_time);
