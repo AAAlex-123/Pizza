@@ -19,6 +19,7 @@
 #define T_DEL_LOW  5
 #define T_DEL_HIGH 15
 
+#define DEBUG
 #define MAX_LOG_LENGTH 100
 
 typedef pthread_t thread;
@@ -27,47 +28,53 @@ typedef pthread_cond_t condv;
 
 unsigned int rand_seed;
 
-/* struct with information about an order.
- * used to facilitate organisation of code into functions. */
+/* Struct containing information about each order.
+ * Used to facilitate organization of code into separate functions. */
 typedef struct {
 	long threadID;
 	int num_of_pizzas;
 	struct timespec order_start_time;
 	struct timespec order_baked_time;
-} pizza_info;
+} order_info;
 
-/* Function called by all threads to make an order.
- * Successively executes all steps for the pizza delivery. */
+/*
+ * Function called by all threads to make an order. Takes an order_info pointer as argument.
+ * Successively executes all steps for the pizza delivery.
+ * Returns NULL if the order was completed successfully.
+ */
 void* make_order(void*);
 
-/* one function for each part of the order, for each resource.
- * they all share the same information about an order. */
-int order_pizzas(pizza_info*);
-void prepare_pizzas(pizza_info*);
-void cook_pizzas(pizza_info*);
-void package_pizzas(pizza_info*);
-void deliver_pizzas(pizza_info*);
+/*
+ * Separate functions each executing a part of the order.
+ * Called in parallel for each order, represented by the order_info pointer.
+ */
+int order_pizzas(order_info*);
+void prepare_pizzas(order_info*);
+void cook_pizzas(order_info*);
+void package_pizzas(order_info*);
+void deliver_pizzas(order_info*);
 
 /* ==================== Utility Functions ==================== */
 
 /*
- * logstr and logerr both append a newline in the end.
- * use locks so that the lines are not scrambled.
- * spinlocks are fine because printing is very quick.
+ * Functions to safely print messages in the stdout and stderr streams,
+ * appending a new line character at the end.
+ * Use of the same lock by both so that the lines are not scrambled in the console.
+ * Spinlocks are fine because printing is very quick.
  */
 void logstr(char*);
 void logerr(char*);
 
-/* returns random integer in the range [start, end] */
+/* Returns a random integer in the range [start, end] */
 int randint(int start, int end);
 
-/* increments `total` by `amt` */
+/* Increments `total` by `amt` in a thread-safe way */
 void increment(int amt, int* total);
 
-/* sets `max` to the maximum of `val` and `max` */
+/* Sets `max` to the maximum of `val` and `max` in a thread-safe way*/
 void max(int val, int* max);
 
-/* returns the time elapsed from start to now */
+/* Returns the time elapsed from start to now */
 int time_elapsed(struct timespec*);
 
 #endif
