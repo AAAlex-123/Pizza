@@ -19,7 +19,7 @@
 #define T_DEL_LOW  5
 #define T_DEL_HIGH 15
 
-#define DEBUG
+//#define DEBUG
 #define MAX_LOG_LENGTH 100
 
 typedef pthread_t thread;
@@ -46,10 +46,10 @@ void* make_order(void*);
 
 /*
  * Separate functions each executing a part of the order.
- * Called successively for each order (using the order_info pointer), 
+ * Called successively for each order (using the order_info pointer),
  * but accessed by multiple threads at the same time.
  */
-int order_pizzas(order_info*);
+int  order_pizzas(order_info*);
 void prepare_pizzas(order_info*);
 void cook_pizzas(order_info*);
 void package_pizzas(order_info*);
@@ -70,10 +70,10 @@ void logerr(char*);
 int randint(int start, int end);
 
 /* Increments `total` by `amt` in a thread-safe way */
-void increment(int amt, int* total);
+void increment(int amt, int* total, mutex* lock);
 
 /* Sets `max` to the maximum of `val` and `max` in a thread-safe way*/
-void max(int val, int* max);
+void max(int val, int* max, mutex* lock);
 
 /* Returns the time elapsed from start to now */
 int time_elapsed(struct timespec*);
