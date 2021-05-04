@@ -6,10 +6,6 @@
 
 #include "p3190106-p3190205.h"
 
-/*
- * Details about the functions and data structures used can be found in the header file.
- */
-
 /* data arrays*/
 order_info* order_infos;
 thread* threads;
@@ -55,17 +51,16 @@ void* make_order(void* args) {
 
 	order_info* p_info = (order_info*) args;
 
-	// return code 1 = failed order, 0 = registered order
+	// return code 1 = order failed, 0 = order registered
 	if (order_pizzas(p_info) == 1)
 		pthread_exit((void*) 1);
 	prepare_pizzas(p_info);
 	cook_pizzas(p_info);
 	package_pizzas(p_info);
 	deliver_pizzas(p_info);
-
 	pthread_exit(NULL);
 }
-
+  
 int main(int argc, char** argv) {
 	int number_of_customers;
 	
@@ -73,7 +68,7 @@ int main(int argc, char** argv) {
 	pthread_mutex_init(&out_lock, NULL);
 	pthread_mutex_init(&increment_lock, NULL);
 	pthread_mutex_init(&max_lock, NULL);
-
+  
 	pthread_mutex_init(&tele_mutex, NULL);
 	pthread_mutex_init(&cook_mutex, NULL);
 	pthread_mutex_init(&oven_mutex, NULL);
@@ -138,7 +133,7 @@ int main(int argc, char** argv) {
 	printf("All orders created\n");
 	fflush(stdout);
 #endif
-
+    
 	/* Wait for orders to finish */
 	int failed_orders = 0;
         void* return_code;
@@ -176,7 +171,7 @@ int main(int argc, char** argv) {
 	pthread_mutex_destroy(&increment_lock);
 	pthread_mutex_destroy(&max_lock);
 
-	pthread_mutex_destroy(&tele_mutex);
+ 	pthread_mutex_destroy(&tele_mutex);
 	pthread_mutex_destroy(&cook_mutex);
 	pthread_mutex_destroy(&oven_mutex);
 	pthread_mutex_destroy(&package_mutex);
@@ -214,44 +209,45 @@ int order_pizzas(order_info* p_info) {
 	/* Update global variables */
 	increment(wait, &total_wait);
 	max(wait, &max_wait);
+  
+  /* Select pizzas */                                                                                          
+  p_info->num_of_pizzas = randint(N_ORDER_LOW, N_ORDER_HIGH);
 
-	/* Select pizzas */
-	p_info->num_of_pizzas = randint(N_ORDER_LOW, N_ORDER_HIGH);
+  /* Pay for pizzas */
+#ifdef DEBUG
+    unsigned int sleep_time = randint(T_PAYMENT_LOW, T_PAYMENT_HIGH);
+    char dbg[MAX_LOG_LENGTH];
+		sprintf(dbg, "Thread %ld waits for %d seconds on the phone", p_info->threadID, sleep_time);
+		logstr(dbg);
+	  sleep(sleep_time);
+#endif
+#ifndef DEBUG
+  sleep(randint(T_PAYMENT_LOW, T_PAYMENT_HIGH));
+#endif
 
+   int order_failed = randint(0, 1 * 100000) < P_FAIL * 100000;
 
-	/* Pay for pizzas */
-		unsigned int sleep_time = randint(T_PAYMENT_LOW, T_PAYMENT_HIGH);
+        if (order_failed) {
+                /* Fail to pay for pizzas */
+                sprintf(msg, "Order %ld failed", p_info->threadID);
+                logstr(msg);
+        } else {
+                /* Actually pay for pizzas */
+                sprintf(msg, "Order %ld registered", p_info->threadID);
+                logstr(msg);
+                /* Update global variable */
+                increment(p_info->num_of_pizzas * C_PIZZA, &revenue);
+        }
 
-	#ifdef DEBUG
-		sprintf(msg, "Thread %ld waits for %d seconds on the phone", p_info->threadID, sleep_time);
-		logstr(msg);
-	#endif
-	sleep(sleep_time);
+        /* Always free the telephone guy */
+        pthread_mutex_lock(&tele_mutex); /* lock the resource to edit it */
 
-
-	int order_failed = randint(0, 1 * 100000) < P_FAIL * 100000;
-
-	if (order_failed) {
-		/* Fail to pay for pizzas */
-		sprintf(msg, "Order %ld failed", p_info->threadID);
-		logstr(msg);
-	} else {
-		/* Actually pay for pizzas */
-		sprintf(msg, "Order %ld registered", p_info->threadID);
-		logstr(msg);
-		/* Update global variable */
-		increment(p_info->num_of_pizzas * C_PIZZA, &revenue);
-	}
-
-	/* Always free the telephone guy */
-	pthread_mutex_lock(&tele_mutex); /* lock the resource to edit it */
-
-	++available_telephone_guys; /* update the resource */
-	pthread_cond_broadcast(&tele_condv); /* signal the other threads that the resource is available */
-	pthread_mutex_unlock(&tele_mutex); /* unlock the resource */
-
-	/* Return code indicating success or failure of payment */
-	return order_failed ? 1 : 0;
+        ++available_telephone_guys; /* update the resource */
+        pthread_cond_broadcast(&tele_condv); /* signal the other threads that the resource is available */ 
+        pthread_mutex_unlock(&tele_mutex); /* unlock the resource */
+  
+        /* Return code indicating success or failure of payment */
+        return order_failed ? 1 : 0;
 }
 
 void prepare_pizzas(order_info* p_info) {
@@ -260,9 +256,9 @@ void prepare_pizzas(order_info* p_info) {
 	pthread_mutex_lock(&cook_mutex);
 
 #ifdef DEBUG
-	char msg [MAX_LOG_LENGTH];
-	sprintf(msg, "Thread %ld is waiting %d cooks to prepare %d pizzas", p_info->threadID, available_cooks, p_info->num_of_pizzas);
-	logstr(msg);
+	char dbg[MAX_LOG_LENGTH];
+	sprintf(dbg, "Thread %ld is waiting %d cooks to prepare %d pizzas", p_info->threadID, available_cooks, p_info->num_of_pizzas);
+	logstr(dbg);
 #endif
 
 	while (available_cooks == 0)
@@ -288,9 +284,9 @@ void cook_pizzas(order_info* p_info) {
 	pthread_mutex_unlock(&oven_mutex);
 
 #ifdef DEBUG
-	char msg[MAX_LOG_LENGTH];
-	sprintf(msg, "Thread %ld started cooking %d pizzas, %d ovens currently available",p_info->threadID,p_info->num_of_pizzas,available_ovens);
-	logstr(msg);
+	char dbg[MAX_LOG_LENGTH];
+	sprintf(dbg, "Thread %ld started cooking %d pizzas, %d ovens currently available",p_info->threadID,p_info->num_of_pizzas,available_ovens);
+	logstr(dbg);
 #endif
 
 	/* Free the cook now that the pizzas are in the ovens */
@@ -343,11 +339,11 @@ void package_pizzas(order_info* p_info) {
 }
 
 void deliver_pizzas(order_info* p_info) {
-	char msg[MAX_LOG_LENGTH];
 
 #ifdef DEBUG
-	sprintf(msg, "Thread %ld waiting to be delivered. %d delivery boys available", p_info->threadID, available_delivery_guys);
-	logstr(msg);
+  char dbg[MAX_LOG_LENGTH];
+	sprintf(dbg, "Thread %ld waiting to be delivered. %d delivery boys available", p_info->threadID, available_delivery_guys);
+	logstr(dbg);
 #endif
 
 	/* Wait for delivery guy */
@@ -362,6 +358,7 @@ void deliver_pizzas(order_info* p_info) {
 	int delivery_duration = randint(T_DEL_LOW, T_DEL_HIGH);
 	sleep(delivery_duration);
 
+	char msg[MAX_LOG_LENGTH];
 	sprintf(msg, "Order %ld delivered in %d seconds", p_info->threadID,
 			time_elapsed(&p_info->order_start_time));
 	logstr(msg);
@@ -405,11 +402,12 @@ int randint(int start, int end) {
 }
 
 void increment(int amt, int* total) {
+
 	pthread_mutex_lock(&increment_lock);
 	*total += amt;
 	pthread_mutex_unlock(&increment_lock);
 }
-
+  
 void max(int val, int* max) {
 	pthread_mutex_lock(&max_lock);
 	*max = (val > *max) ? val : *max;

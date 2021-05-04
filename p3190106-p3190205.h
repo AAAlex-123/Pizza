@@ -40,13 +40,13 @@ typedef struct {
 /*
  * Function called by all threads to make an order. Takes an order_info pointer as argument.
  * Successively executes all steps for the pizza delivery.
- * Returns NULL if the order was completed successfully, 1 if the order was aborted.
+ * Returns NULL if the order was completed successfully, 1 if the order failed.
  */
 void* make_order(void*);
 
 /*
  * Separate functions each executing a part of the order.
- * Called successively for each order (represented by the order_info pointer), 
+ * Called successively for each order (using the order_info pointer), 
  * but accessed by multiple threads at the same time.
  */
 int order_pizzas(order_info*);
