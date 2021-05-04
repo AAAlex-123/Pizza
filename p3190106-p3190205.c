@@ -21,8 +21,14 @@ int max_cooling = 0;
 
 /* global mutexes and condition variables */
 mutex out_lock = PTHREAD_MUTEX_INITIALIZER;
-mutex increment_lock = PTHREAD_MUTEX_INITIALIZER;
-mutex max_lock = PTHREAD_MUTEX_INITIALIZER;
+
+mutex revenue_lock = PTHREAD_MUTEX_INITIALIZER;
+mutex total_wait_lock  = PTHREAD_MUTEX_INITIALIZER;
+mutex max_wait_lock  = PTHREAD_MUTEX_INITIALIZER;
+mutex total_delivery_lock  = PTHREAD_MUTEX_INITIALIZER;
+mutex max_delivery_lock  = PTHREAD_MUTEX_INITIALIZER;
+mutex total_cooling_lock  = PTHREAD_MUTEX_INITIALIZER;
+mutex max_cooling_lock  = PTHREAD_MUTEX_INITIALIZER;
 
 mutex tele_mutex = PTHREAD_MUTEX_INITIALIZER;
 mutex cook_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -60,17 +66,18 @@ void* make_order(void* args) {
 	deliver_pizzas(p_info);
 	pthread_exit(NULL);
 }
-  
+
 int main(int argc, char** argv) {
 	int number_of_customers;
-	
+	int successful_orders;
+
 	/* Initialize program */
 	if (argc != 3) {
 		fprintf(stderr, "Usage: ./a.out [number of customers] [random seed]");
 		exit(1);
 	}
 
-	/* Numer of Customers */
+	/* Number of Customers */
 	number_of_customers = atoi(argv[1]);
 	if (number_of_customers <= 0) {
 		fprintf(stderr, "Error: Invalid number of customers");
@@ -116,7 +123,7 @@ int main(int argc, char** argv) {
 	printf("All orders created\n");
 	fflush(stdout);
 #endif
-    
+
 	/* Wait for orders to finish */
 	int failed_orders = 0;
         void* return_code;
@@ -131,7 +138,7 @@ int main(int argc, char** argv) {
 	}
 
 	/* Print stats */
-	int successful_orders = number_of_customers - failed_orders;
+	successful_orders = number_of_customers - failed_orders;
 
 	printf("\nStats:\n");
 	printf("Total revenue:         %d$\nSuccessful orders:     %d\nFailed orders:         %d\n",
@@ -151,8 +158,14 @@ int main(int argc, char** argv) {
 	free(threads);
 
 	pthread_mutex_destroy(&out_lock);
-	pthread_mutex_destroy(&increment_lock);
-	pthread_mutex_destroy(&max_lock);
+
+	pthread_mutex_destroy(&revenue_lock);
+	pthread_mutex_destroy(&total_wait_lock);
+	pthread_mutex_destroy(&max_wait_lock);
+	pthread_mutex_destroy(&total_delivery_lock);
+	pthread_mutex_destroy(&max_delivery_lock);
+	pthread_mutex_destroy(&total_cooling_lock);
+	pthread_mutex_destroy(&max_cooling_lock);
 
  	pthread_mutex_destroy(&tele_mutex);
 	pthread_mutex_destroy(&cook_mutex);
@@ -190,10 +203,10 @@ int order_pizzas(order_info* p_info) {
 	/* Talk with telephone guy */
 	int wait = time_elapsed(&p_info->order_start_time);
 	/* Update global variables */
-	increment(wait, &total_wait);
-	max(wait, &max_wait);
-  
-  /* Select pizzas */                                                                                          
+	increment(wait, &total_wait, &total_wait_lock);
+	max(wait, &max_wait, &max_wait_lock);
+
+  /* Select pizzas */
   p_info->num_of_pizzas = randint(N_ORDER_LOW, N_ORDER_HIGH);
 
   /* Pay for pizzas */
@@ -219,16 +232,16 @@ int order_pizzas(order_info* p_info) {
                 sprintf(msg, "Order %ld registered", p_info->threadID);
                 logstr(msg);
                 /* Update global variable */
-                increment(p_info->num_of_pizzas * C_PIZZA, &revenue);
+                increment(p_info->num_of_pizzas * C_PIZZA, &revenue, &revenue_lock);
         }
 
         /* Always free the telephone guy */
         pthread_mutex_lock(&tele_mutex); /* lock the resource to edit it */
 
         ++available_telephone_guys; /* update the resource */
-        pthread_cond_broadcast(&tele_condv); /* signal the other threads that the resource is available */ 
+        pthread_cond_broadcast(&tele_condv); /* signal the other threads that the resource is available */
         pthread_mutex_unlock(&tele_mutex); /* unlock the resource */
-  
+
         /* Return code indicating success or failure of payment */
         return order_failed ? 1 : 0;
 }
@@ -289,6 +302,7 @@ void cook_pizzas(order_info* p_info) {
 }
 
 void package_pizzas(order_info* p_info) {
+	char msg[MAX_LOG_LENGTH];
 
 	/* Wait for an available package guy */
 	pthread_mutex_lock(&package_mutex);
@@ -301,7 +315,6 @@ void package_pizzas(order_info* p_info) {
 	/* Package the pizzas */
 	sleep(T_PACK * p_info->num_of_pizzas);
 
-	char msg[MAX_LOG_LENGTH];
 	sprintf(msg, "Order %ld prepared in %d seconds", p_info->threadID,
 			time_elapsed(&p_info->order_start_time));
 	logstr(msg);
@@ -322,6 +335,9 @@ void package_pizzas(order_info* p_info) {
 }
 
 void deliver_pizzas(order_info* p_info) {
+	char msg[MAX_LOG_LENGTH];
+	int delivery_time;
+	int cooling_time;
 
 #ifdef DEBUG
   char dbg[MAX_LOG_LENGTH];
@@ -341,17 +357,18 @@ void deliver_pizzas(order_info* p_info) {
 	int delivery_duration = randint(T_DEL_LOW, T_DEL_HIGH);
 	sleep(delivery_duration);
 
-	char msg[MAX_LOG_LENGTH];
 	sprintf(msg, "Order %ld delivered in %d seconds", p_info->threadID,
 			time_elapsed(&p_info->order_start_time));
 	logstr(msg);
 
 	/* Update global variables */
-	int delivery_time = time_elapsed(&p_info->order_start_time);
-	int cooling_time = time_elapsed(&p_info->order_baked_time);
+	delivery_time = time_elapsed(&p_info->order_start_time);
+	cooling_time = time_elapsed(&p_info->order_baked_time);
 
-	increment(delivery_time, &total_delivery);
-	max(delivery_time, &max_delivery); increment(cooling_time, &total_cooling); max(cooling_time, &max_cooling);
+	increment(delivery_time, &total_delivery, &total_delivery_lock);
+	max(delivery_time, &max_delivery,&max_delivery_lock);
+	increment(cooling_time, &total_cooling,&total_cooling_lock);
+	max(cooling_time, &max_cooling,&max_cooling_lock);
 
 	/* Return to pizza shop */
 	sleep(delivery_duration);
@@ -384,17 +401,16 @@ int randint(int start, int end) {
     return (rand_r(&rand_seed) % (end - start + 1)) + start;
 }
 
-void increment(int amt, int* total) {
-
-	pthread_mutex_lock(&increment_lock);
+void increment(int amt, int* total, mutex* lock) {
+	pthread_mutex_lock(lock);
 	*total += amt;
-	pthread_mutex_unlock(&increment_lock);
+	pthread_mutex_unlock(lock);
 }
-  
-void max(int val, int* max) {
-	pthread_mutex_lock(&max_lock);
+
+void max(int val, int* max, mutex* lock) {
+	pthread_mutex_lock(lock);
 	*max = (val > *max) ? val : *max;
-	pthread_mutex_unlock(&max_lock);
+	pthread_mutex_unlock(lock);
 }
 
 int time_elapsed(struct timespec *tp) {
