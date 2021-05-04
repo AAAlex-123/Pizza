@@ -20,21 +20,21 @@ int total_cooling = 0;
 int max_cooling = 0;
 
 /* global mutexes and condition variables */
-mutex out_lock;
-mutex increment_lock;
-mutex max_lock;
+mutex out_lock = PTHREAD_MUTEX_INITIALIZER;
+mutex increment_lock = PTHREAD_MUTEX_INITIALIZER;
+mutex max_lock = PTHREAD_MUTEX_INITIALIZER;
 
-mutex tele_mutex;
-mutex cook_mutex;
-mutex oven_mutex;
-mutex package_mutex;
-mutex delivery_mutex;
+mutex tele_mutex = PTHREAD_MUTEX_INITIALIZER;
+mutex cook_mutex = PTHREAD_MUTEX_INITIALIZER;
+mutex oven_mutex = PTHREAD_MUTEX_INITIALIZER;
+mutex package_mutex = PTHREAD_MUTEX_INITIALIZER;
+mutex delivery_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-condv cook_condv;
-condv tele_condv;
-condv oven_condv;
-condv package_condv;
-condv delivery_condv;
+condv cook_condv = PTHREAD_COND_INITIALIZER;
+condv tele_condv = PTHREAD_COND_INITIALIZER;
+condv oven_condv = PTHREAD_COND_INITIALIZER;
+condv package_condv = PTHREAD_COND_INITIALIZER;
+condv delivery_condv = PTHREAD_COND_INITIALIZER;
 
 /* global counters for available resources */
 int available_telephone_guys = N_TELE;
@@ -63,23 +63,6 @@ void* make_order(void* args) {
   
 int main(int argc, char** argv) {
 	int number_of_customers;
-	
-	/* Initialize all mutexes / cond variables */
-	pthread_mutex_init(&out_lock, NULL);
-	pthread_mutex_init(&increment_lock, NULL);
-	pthread_mutex_init(&max_lock, NULL);
-  
-	pthread_mutex_init(&tele_mutex, NULL);
-	pthread_mutex_init(&cook_mutex, NULL);
-	pthread_mutex_init(&oven_mutex, NULL);
-	pthread_mutex_init(&package_mutex, NULL);
-	pthread_mutex_init(&delivery_mutex, NULL);
-
-	pthread_cond_init(&tele_condv, NULL);
-	pthread_cond_init(&cook_condv, NULL);
-	pthread_cond_init(&oven_condv, NULL);
-	pthread_cond_init(&package_condv, NULL);
-	pthread_cond_init(&delivery_condv, NULL);
 	
 	/* Initialize program */
 	if (argc != 3) {
