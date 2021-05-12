@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#include "p3190106-p3190205.h"
+#include "p3190106-p3190205-pizza.h"
 
 /* data arrays */
 order_info* order_infos;
