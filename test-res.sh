@@ -2,7 +2,7 @@
 rm pizza.out
 
 # compile
-gcc -o pizza.out -pthread -Wall -Wextra -Werror p3190106-p3190205.c
+gcc -o pizza.out -pthread -Wall -Wextra -Werror p3190106-p3190205-pizzaa.c
 
 # optionally use commandline arguments
 if [ -z "$1" ]
