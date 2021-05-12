@@ -1,5 +1,5 @@
-# remove old file to prevent execution on failed compilation
-rm pizza.out
+# silently remove old file to prevent execution on failed compilation
+rm -f pizza.out
 
 # compile
 gcc -o pizza.out -pthread -Wall -Wextra -Werror p3190106-p3190205-pizza.c
