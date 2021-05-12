@@ -1,9 +1,9 @@
 #ifndef __PIZZA_H__
 #define __PIZZA_H__
 
-#define N_TELE 3
-#define N_COOK 2
-#define N_OVEN 10
+#define N_TELE         3
+#define N_COOK         2
+#define N_OVEN         10
 #define N_DELIVERER    7
 #define T_ORDER_LOW    1
 #define T_ORDER_HIGH   5
@@ -11,18 +11,16 @@
 #define N_ORDER_HIGH   5
 #define T_PAYMENT_LOW  1
 #define T_PAYMENT_HIGH 2
-#define C_PIZZA 10
-#define P_FAIL 0.05
-#define T_PREP  1
-#define T_BAKE  10
-#define T_PACK  2
-#define T_DEL_LOW  5
-#define T_DEL_HIGH 15
+#define C_PIZZA        10
+#define P_FAIL         0.05
+#define T_PREP         1
+#define T_BAKE         10
+#define T_PACK         2
+#define T_DEL_LOW      5
+#define T_DEL_HIGH     15
 
-//#define DEBUG
 #define MAX_LOG_LENGTH 100
 
-typedef pthread_t thread;
 typedef pthread_mutex_t mutex;
 typedef pthread_cond_t condv;
 
@@ -45,9 +43,10 @@ typedef struct {
 void* make_order(void*);
 
 /*
- * Separate functions each executing a part of the order.
- * Called successively for each order (using the order_info pointer),
- * but accessed by multiple threads at the same time.
+ * Functions that each execute a part of the order.
+ * They are called successively for each order but are called by
+ * multiple threads at the same time.
+ * Information about an order is stored in the order_info pointer.   
  */
 int  order_pizzas(order_info*);
 void prepare_pizzas(order_info*);
@@ -58,10 +57,9 @@ void deliver_pizzas(order_info*);
 /* ==================== Utility Functions ==================== */
 
 /*
- * Functions to safely print messages in the stdout and stderr streams,
- * appending a new line character at the end.
- * Use of the same lock by both so that the lines are not scrambled in the console.
- * Blocking implemented by spinlocks because printing is very quick (1 syscall).
+ * Functions to properly print messages in the stdout and stderr.
+ * Both use the same lock so that the lines are not scrambled in the console.
+ * Blocking is implemented using spinlocks because printing is very quick.
  */
 void logstr(char*);
 void logerr(char*);
@@ -72,10 +70,10 @@ int randint(int start, int end);
 /* Increments `total` by `amt` in a thread-safe way */
 void increment(int amt, int* total, mutex* lock);
 
-/* Sets `max` to the maximum of `val` and `max` in a thread-safe way*/
+/* Sets `max` to the maximum of `val` and `max` in a thread-safe way */
 void max(int val, int* max, mutex* lock);
 
-/* Returns the time elapsed from start to now */
-int time_elapsed(struct timespec*);
+/* Returns the time elapsed from `start` to the time of the function call */
+int time_elapsed(struct timespec* start);
 
 #endif
