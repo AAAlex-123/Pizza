@@ -73,7 +73,7 @@ void increment(int amt, int* total, mutex* lock);
 /* Sets `max` to the maximum of `val` and `max` in a thread-safe way */
 void max(int val, int* max, mutex* lock);
 
-/* Returns the time elapsed from `start` to the time of the function call */
-int time_elapsed(struct timespec* start);
+/* Returns the time difference from now to the time given as the argument */
+int time_elapsed(struct timespec*);
 
 #endif
