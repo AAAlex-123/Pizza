@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <time.h>
 
 #include "p3190106-p3190205.h"
 
@@ -10,7 +9,7 @@
 order_info* order_infos;
 thread* threads;
 
-/* global stats that each thread alters in a safe manner */
+/* global stats that each thread alters in a thread-safe manner */
 int revenue = 0;
 int total_wait = 0;
 int max_wait = 0;
@@ -153,7 +152,7 @@ int main(int argc, char** argv) {
 	printf("Average cooling time:  %.2f minutes\nMax cooling time:      %.2f minutes\n",
 			(float) total_cooling / successful_orders / 60.f, max_cooling / 60.f);
 
-	/* Release resourses (even though program terminates right after) */
+	/* Release resourses */
 	free(order_infos);
 	free(threads);
 
@@ -266,7 +265,7 @@ void prepare_pizzas(order_info* p_info) {
 	/* Prepare the pizzas */
 	sleep(p_info->num_of_pizzas * T_PREP);
 
-	/* The cook is freed once the pizzas are in the ovens */
+	/* The cook is freed in the next step, once the pizzas are in the ovens */
 }
 
 void cook_pizzas(order_info* p_info) {
@@ -281,7 +280,7 @@ void cook_pizzas(order_info* p_info) {
 
 #ifdef DEBUG
 	char dbg[MAX_LOG_LENGTH];
-	sprintf(dbg, "Thread %ld started cooking %d pizzas, %d ovens currently available",p_info->threadID,p_info->num_of_pizzas,available_ovens);
+	sprintf(dbg, "Thread %ld started cooking %d pizzas, %d ovens currently available",p_info->threadID, p_info->num_of_pizzas, available_ovens);
 	logstr(dbg);
 #endif
 
@@ -366,9 +365,9 @@ void deliver_pizzas(order_info* p_info) {
 	cooling_time = time_elapsed(&p_info->order_baked_time);
 
 	increment(delivery_time, &total_delivery, &total_delivery_lock);
-	max(delivery_time, &max_delivery,&max_delivery_lock);
-	increment(cooling_time, &total_cooling,&total_cooling_lock);
-	max(cooling_time, &max_cooling,&max_cooling_lock);
+	max(delivery_time, &max_delivery, &max_delivery_lock);
+	increment(cooling_time, &total_cooling, &total_cooling_lock);
+	max(cooling_time, &max_cooling, &max_cooling_lock);
 
 	/* Return to pizza shop */
 	sleep(delivery_duration);
@@ -385,14 +384,14 @@ void deliver_pizzas(order_info* p_info) {
 
 void logstr(char* string) {
     pthread_mutex_lock(&out_lock);
-    fprintf(stdout, "%s\n",string);
-    fflush(stdout);
+    fprintf(stdout, "%s\n", string);
+    fflush(stdout);	/*Make sure the message is printed on the screen before releasing the lock*/
     pthread_mutex_unlock(&out_lock);
 }
 
 void logerr(char* string) {
     pthread_mutex_lock(&out_lock);
-    fprintf(stderr, "%s\n",string);
+    fprintf(stderr, "%s\n", string);
     fflush(stderr);
     pthread_mutex_unlock(&out_lock);
 }
