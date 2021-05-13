@@ -9,7 +9,7 @@
 order_info* order_infos;
 pthread_t* threads;
 
-/* global stats that each thread alters in a safe manner */
+/* global stats that each thread alters in a thread-safe manner */
 int revenue        = 0;
 int total_wait     = 0;
 int max_wait       = 0;
@@ -148,7 +148,7 @@ int main(int argc, char** argv) {
 	printf("Average cooling time:  %.2f minutes\nMax cooling time:      %.2f minutes\n",
 			(float) total_cooling / successful_orders / 60.f, max_cooling / 60.f);
 
-	/* Release resourses (even though program terminates right after) */
+	/* Release resourses */
 	free(order_infos);
 	free(threads);
 
@@ -247,7 +247,7 @@ void prepare_pizzas(order_info* p_info) {
 	/* Prepare the pizzas */
 	sleep(p_info->num_of_pizzas * T_PREP);
 
-	/* The cook is freed once the pizzas are in the ovens */
+	/* The cook is freed in the next step, once the pizzas are in the ovens */
 }
 
 void cook_pizzas(order_info* p_info) {
@@ -355,7 +355,7 @@ void deliver_pizzas(order_info* p_info) {
 void logstr(char* string) {
     pthread_mutex_lock(&out_lock);
     fprintf(stdout, "%s\n", string);
-    fflush(stdout);
+    fflush(stdout);    /*Make sure the message is printed on the screen before releasing the lock*/
     pthread_mutex_unlock(&out_lock);
 }
 
