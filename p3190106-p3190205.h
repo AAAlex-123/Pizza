@@ -22,6 +22,8 @@
 //#define DEBUG
 #define MAX_LOG_LENGTH 100
 
+#include <time.h>
+
 typedef pthread_t thread;
 typedef pthread_mutex_t mutex;
 typedef pthread_cond_t condv;
@@ -75,7 +77,7 @@ void increment(int amt, int* total, mutex* lock);
 /* Sets `max` to the maximum of `val` and `max` in a thread-safe way*/
 void max(int val, int* max, mutex* lock);
 
-/* Returns the time elapsed from start to now */
+/* Returns the time difference from now to the time given as the argument */
 int time_elapsed(struct timespec*);
 
 #endif
