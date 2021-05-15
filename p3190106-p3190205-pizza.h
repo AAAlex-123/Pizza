@@ -46,7 +46,7 @@ void* make_order(void*);
  * Functions that each execute a part of the order.
  * They are called successively for each order but are called by
  * multiple threads at the same time.
- * Information about an order is stored in the order_info pointer.   
+ * Information about an order is stored in the order_info pointer.
  */
 int  order_pizzas(order_info*);
 void prepare_pizzas(order_info*);
