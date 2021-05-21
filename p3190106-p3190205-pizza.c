@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
 
 	/* Initialize program */
 	if (argc != 3) {
-		fprintf(stderr, "Usage: ./a.out [number of customers] [random seed]\n");
+		fprintf(stderr, "Invalid number of arguments. Usage: ./a.out [number of customers] [random seed]\n");
 		exit(1);
 	}
 
@@ -139,16 +139,16 @@ int main(int argc, char** argv) {
 	printf("Total revenue:         %d$\nSuccessful orders:     %d\nFailed orders:         %d\n",
 			revenue, successful_orders, failed_orders);
 
-	secs_to_mins(total_wait / number_of_customers, s1);
-	secs_to_mins(max_wait, s2);
+	mins_to_hours(total_wait / number_of_customers, s1);
+	mins_to_hours(max_wait, s2);
 	printf("Average wait time:     %s\nMax wait time:         %s\n", s1, s2);
 
-	secs_to_mins(total_delivery / successful_orders, s1);
-	secs_to_mins(max_delivery, s2);
+	mins_to_hours(total_delivery / successful_orders, s1);
+	mins_to_hours(max_delivery, s2);
 	printf("Average delivery time: %s\nMax delivery time:     %s\n", s1, s2);
 
-	secs_to_mins(total_cooling / successful_orders, s1);
-	secs_to_mins(max_cooling, s2);
+	mins_to_hours(total_cooling / successful_orders, s1);
+	mins_to_hours(max_cooling, s2);
 	printf("Average cooling time:  %s\nMax cooling time:      %s\n", s1, s2);
 
 	/* Release resourses */
@@ -200,7 +200,7 @@ int order_pizzas(order_info* p_info) {
 
 	/* Talk with telephone guy */
 	int wait = time_elapsed(&p_info->order_start_time);
-	
+
 	/* Update global variables on talking on the phone */
 	increment( wait, &total_wait, &total_wait_lock );
 	max(       wait, &max_wait,   &max_wait_lock   );
@@ -215,11 +215,11 @@ int order_pizzas(order_info* p_info) {
 
         if (order_failed) {
                 /* Fail to pay for pizzas */
-                sprintf(msg, "Order %ld failed", p_info->threadID);
+                sprintf(msg, "Order %ld failed.", p_info->threadID);
                 logstr(msg);
         } else {
                 /* Actually pay for pizzas */
-                sprintf(msg, "Order %ld registered", p_info->threadID);
+                sprintf(msg, "Order %ld registered.", p_info->threadID);
                 logstr(msg);
                 /* Update global variable on payment */
                 increment(p_info->num_of_pizzas * C_PIZZA, &revenue, &revenue_lock);
@@ -293,7 +293,7 @@ void package_pizzas(order_info* p_info) {
 	/* Package the pizzas */
 	sleep(T_PACK * p_info->num_of_pizzas);
 
-	sprintf(msg, "Order %ld prepared in %d seconds", p_info->threadID,
+	sprintf(msg, "Order %ld prepared in %d minutes.", p_info->threadID,
 			time_elapsed(&p_info->order_start_time));
 	logstr(msg);
 
@@ -329,7 +329,7 @@ void deliver_pizzas(order_info* p_info) {
 	int delivery_duration = randint(T_DEL_LOW, T_DEL_HIGH);
 	sleep(delivery_duration);
 
-	sprintf(msg, "Order %ld delivered in %d seconds", p_info->threadID,
+	sprintf(msg, "Order %ld delivered in %d minutes.", p_info->threadID,
 			time_elapsed(&p_info->order_start_time));
 	logstr(msg);
 
@@ -391,10 +391,10 @@ int time_elapsed(struct timespec *start) {
 	return now.tv_sec - start->tv_sec;
 }
 
-void secs_to_mins(int seconds, char* s) {
-	int mins = seconds / 60;
-	int secs = seconds % 60;
-	char* ms = mins == 1 ? "" : "s";
-	char* ss = secs == 1 ? "" : "s";
-	sprintf(s, "%d minute(s)%s and %d seconds%s", mins, ms, secs, ss);
+void mins_to_hours(int minutes, char* s) {
+	int hours = minutes / 60;
+	int mins = minutes % 60;
+	char* hours_end = hours == 1 ? "" : "s";
+	char* mins_end = mins == 1 ? "" : "s";
+	sprintf(s, "%d hour%s and %d minute%s.", hours, hours_end, mins, mins_end);
 }
