@@ -70,8 +70,7 @@ void* make_order(void* args) {
 
 int main(int argc, char** argv) {
 	int number_of_customers;
-	int successful_orders;
-	int failed_orders;
+	int successful_orders, failed_orders;
 	void* return_code;
 
 	/* Initialize program */
@@ -135,18 +134,22 @@ int main(int argc, char** argv) {
 	/* Print stats */
 	successful_orders = number_of_customers - failed_orders;
 
+	char s1[25], s2[25];
 	printf("\nStats:\n");
 	printf("Total revenue:         %d$\nSuccessful orders:     %d\nFailed orders:         %d\n",
 			revenue, successful_orders, failed_orders);
 
-	printf("Average wait time:     %.2f minutes\nMax wait time:         %.2f minutes\n",
-			(float) total_wait / number_of_customers / 60.f, max_wait / 60.f);
+	secs_to_mins(total_wait / number_of_customers, s1);
+	secs_to_mins(max_wait, s2);
+	printf("Average wait time:     %s\nMax wait time:         %s\n", s1, s2);
 
-	printf("Average delivery time: %.2f minutes\nMax delivery time:     %.2f minutes\n",
-			(float) total_delivery / successful_orders / 60.f, max_delivery / 60.f);
+	secs_to_mins(total_delivery / successful_orders, s1);
+	secs_to_mins(max_delivery, s2);
+	printf("Average delivery time: %s\nMax delivery time:     %s\n", s1, s2);
 
-	printf("Average cooling time:  %.2f minutes\nMax cooling time:      %.2f minutes\n",
-			(float) total_cooling / successful_orders / 60.f, max_cooling / 60.f);
+	secs_to_mins(total_cooling / successful_orders, s1);
+	secs_to_mins(max_cooling, s2);
+	printf("Average cooling time:  %s\nMax cooling time:      %s\n", s1, s2);
 
 	/* Release resourses */
 	free(order_infos);
@@ -355,7 +358,7 @@ void deliver_pizzas(order_info* p_info) {
 void logstr(char* string) {
     pthread_mutex_lock(&out_lock);
     fprintf(stdout, "%s\n", string);
-    fflush(stdout);    /*Make sure the message is printed on the screen before releasing the lock*/
+    fflush(stdout);    /* Make sure the message is printed on the screen before releasing the lock */
     pthread_mutex_unlock(&out_lock);
 }
 
@@ -386,4 +389,12 @@ int time_elapsed(struct timespec *start) {
 	struct timespec now;
 	clock_gettime(CLOCK_REALTIME, &now);
 	return now.tv_sec - start->tv_sec;
+}
+
+void secs_to_mins(int seconds, char* s) {
+	int mins = seconds / 60;
+	int secs = seconds % 60;
+	char* ms = mins == 1 ? "" : "s";
+	char* ss = secs == 1 ? "" : "s";
+	sprintf(s, "%d minute%s and %d second%s", mins, ms, secs, ss);
 }
