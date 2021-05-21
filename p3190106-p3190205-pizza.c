@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
 	/* Print stats */
 	successful_orders = number_of_customers - failed_orders;
 
-	char s1[25], s2[25];
+	char s1[35], s2[35];
 	printf("\nStats:\n");
 	printf("Total revenue:         %d$\nSuccessful orders:     %d\nFailed orders:         %d\n",
 			revenue, successful_orders, failed_orders);
@@ -396,5 +396,5 @@ void secs_to_mins(int seconds, char* s) {
 	int secs = seconds % 60;
 	char* ms = mins == 1 ? "" : "s";
 	char* ss = secs == 1 ? "" : "s";
-	sprintf(s, "%d minute%s and %d second%s", mins, ms, secs, ss);
+	sprintf(s, "%d minute(s)%s and %d seconds%s", mins, ms, secs, ss);
 }
