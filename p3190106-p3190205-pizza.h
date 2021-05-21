@@ -76,6 +76,6 @@ void max(int val, int* max, mutex* lock);
 /* Returns the time difference from now to the time given as the argument */
 int time_elapsed(struct timespec*);
 
-/* Formats the given `seconds` into `s` like "%d minutes and %d seconds" */
-void secs_to_mins(int seconds, char* s);
+/* Formats the given `minutes` into the string `s` like "%d hours and %d minutes" */
+void mins_to_hours(int minutes, char* s) ;
 #endif
